@@ -5,6 +5,14 @@ const sendBtn = document.getElementById('sendBtn');
 const errorMsg = document.getElementById('errorMsg');
 const MAX_LENGTH = 1000;
 
+function buildAliceUrl(query) {
+  const deeplink = JSON.stringify({ text: query });
+  const url = new URL('https://yandex.ru/alice');
+  url.searchParams.set('alice_deeplink', deeplink);
+  url.searchParams.set('_src', 'alice-extension');
+  return url.toString();
+}
+
 function showError(msg) {
   errorMsg.textContent = msg;
   errorMsg.style.display = 'block';
@@ -19,20 +27,14 @@ function sendQuery(text) {
     return;
   }
 
-  chrome.runtime.sendMessage(
-    { action: 'openAlice', query: trimmed },
-    (response) => {
-      if (chrome.runtime.lastError) {
-        showError('Ошибка: ' + chrome.runtime.lastError.message);
-        return;
-      }
-      if (response && response.success) {
-        window.close();
-      } else {
-        showError('Не удалось открыть Алису');
-      }
+  const url = buildAliceUrl(trimmed);
+  chrome.tabs.create({ url, active: true }, (tab) => {
+    if (chrome.runtime.lastError) {
+      showError('Ошибка: ' + chrome.runtime.lastError.message);
+      return;
     }
-  );
+    window.close();
+  });
 }
 
 sendBtn.addEventListener('click', () => sendQuery(textarea.value));
