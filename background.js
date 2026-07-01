@@ -26,3 +26,16 @@ chrome.contextMenus.onClicked.addListener((info) => {
     chrome.tabs.create({ url, active: true });
   }
 });
+
+/* ── Omnibox: alice <текст> ───────────────────────────── */
+
+chrome.omnibox.onInputEntered.addListener((text) => {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const url = buildAliceUrl(trimmed);
+  chrome.tabs.create({ url, active: true });
+});
+
+chrome.omnibox.setDefaultSuggestion({
+  description: `Спросить у Алисы: alice <match>текст запроса</match>`,
+});
