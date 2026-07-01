@@ -31,7 +31,9 @@
     "https://yandex.ru/alice*",
     "https://alice.yandex.ru/*"
   ],
-  "permissions": [],
+  "permissions": [
+    "contextMenus"
+  ],
   "commands": {
     "_execute_action": {
       "suggested_key": {

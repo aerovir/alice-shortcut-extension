@@ -10,25 +10,13 @@ function buildAliceUrl(query) {
   return url.toString();
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'openAlice') {
-    const url = buildAliceUrl(request.query);
-    chrome.tabs.create({ url, active: true }, (tab) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        sendResponse({ success: true, tabId: tab.id });
-      }
-    });
-    return true;
-  }
-});
-
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'ask-alice-selection',
-    title: 'Спросить у Алисы: "%s"',
-    contexts: ['selection'],
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'ask-alice-selection',
+      title: 'Спросить у Алисы: "%s"',
+      contexts: ['selection'],
+    });
   });
 });
 
