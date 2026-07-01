@@ -135,8 +135,19 @@ function handleAliceResponse(requestId, text, senderTabId) {
   }
 
   setTimeout(() => {
-    if (req.tabId) chrome.tabs.remove(req.tabId).catch(() => {});
-    activeRequests.delete(requestId);
+    if (req.tabId) {
+      chrome.tabs.get(req.tabId, (tab) => {
+        if (!chrome.runtime.lastError && tab && tab.active) {
+          // Пользователь сам переключился на вкладку — не закрываем
+          activeRequests.delete(requestId);
+          return;
+        }
+        chrome.tabs.remove(req.tabId).catch(() => {});
+        activeRequests.delete(requestId);
+      });
+    } else {
+      activeRequests.delete(requestId);
+    }
   }, 500);
 }
 
@@ -148,8 +159,18 @@ function handleAliceError(requestId, text, sub, senderTabId) {
   }
   clearTimeout(req.timer);
   try { req.port.postMessage({ type: 'error', text, sub: sub || '' }); } catch (_) {}
-  if (req.tabId) chrome.tabs.remove(req.tabId).catch(() => {});
-  activeRequests.delete(requestId);
+  if (req.tabId) {
+    chrome.tabs.get(req.tabId, (tab) => {
+      if (!chrome.runtime.lastError && tab && tab.active) {
+        activeRequests.delete(requestId);
+        return;
+      }
+      chrome.tabs.remove(req.tabId).catch(() => {});
+      activeRequests.delete(requestId);
+    });
+  } else {
+    activeRequests.delete(requestId);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════
