@@ -35,6 +35,15 @@
 
   console.log('[Ask Alice] Content script active, query:', deeplinkText.slice(0, 60));
 
+  /* ── Проверка авторизации ──────────────────────────────────── */
+  function detectAuthPage() {
+    return document.querySelectorAll(
+      '#passp-field-login, input[name="login"], ' +
+      'form[action*="passport" i], .passp-auth-content, ' +
+      '[class*="login-form"], [data-t*="passp:auth"]'
+    ).length > 0;
+  }
+
   /* ───────────────────────────────────────────────────────────
      2. Утилиты
      ─────────────────────────────────────────────────────────── */
@@ -200,8 +209,21 @@
   let sendAttempted = false;
   let responseTracked = false;
 
+  let authChecked = false;
+
   const pollTimer = setInterval(() => {
     elapsed += POLL_INTERVAL;
+
+    // Проверка авторизации (однократно)
+    if (!authChecked && elapsed >= 1500) {
+      authChecked = true;
+      if (detectAuthPage()) {
+        clearInterval(pollTimer);
+        console.log('[Ask Alice] ❌ Страница авторизации');
+        bgSend({ type: 'aliceError', requestId, text: 'Требуется авторизация в Яндексе', sub: 'Откройте yandex.ru/alice вручную и войдите в аккаунт' });
+        return;
+      }
+    }
 
     // Таймаут
     if (elapsed >= TIMEOUT_SEND && !sendAttempted) {

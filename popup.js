@@ -8,11 +8,16 @@
 const $ = (id) => document.getElementById(id);
 
 const stateInput = $('state-input');
+const stateChoice = $('state-choice');
 const stateLoading = $('state-loading');
 const stateResult = $('state-result');
 const stateError = $('state-error');
 const queryInput = $('queryInput');
 const sendBtn = $('sendBtn');
+const choiceQuery = $('choiceQuery');
+const choiceWait = $('choiceWait');
+const choiceOpen = $('choiceOpen');
+const choiceCancel = $('choiceCancel');
 const loadingQuery = $('loadingQuery');
 const cancelBtn = $('cancelBtn');
 const resultContent = $('resultContent');
@@ -39,7 +44,7 @@ let port = null;            // порт для связи с background
 // ── Helpers ─────────────────────────────────────────────────
 
 function showState(name) {
-  [stateInput, stateLoading, stateResult, stateError].forEach(el =>
+  [stateInput, stateChoice, stateLoading, stateResult, stateError].forEach(el =>
     el.classList.toggle('active', el.id === `state-${name}`)
   );
   currentState = name;
@@ -206,8 +211,7 @@ function connectPort() {
   });
 }
 
-// ── Send Query (#6 core) ────────────────────────────────────
-
+// ── Send Query — показывает выбор ───────────────────────────
 function sendQuery(text) {
   const trimmed = text.trim();
   if (!trimmed) return;
@@ -217,22 +221,41 @@ function sendQuery(text) {
   }
 
   pendingQuery = trimmed;
-  loadingQuery.textContent = `«${trimmed}»`;
-  showState('loading');
-  savePendingQuery(trimmed);
+  choiceQuery.textContent = `«${trimmed}»`;
+  showState('choice');
+}
 
+// ── Choice: ответ здесь ─────────────────────────────────────
+choiceWait.addEventListener('click', () => {
   // Сохраняем в историю
-  addToHistory(trimmed);
+  addToHistory(pendingQuery);
 
-  // Коннектим порт
+  // Показываем loading
+  loadingQuery.textContent = `«${pendingQuery}»`;
+  showState('loading');
+  savePendingQuery(pendingQuery);
+
+  // Коннектим порт и отправляем запрос в background
   connectPort();
-
-  // Отправляем запрос в background
   port.postMessage({
     action: 'askAlice',
-    query: trimmed,
+    query: pendingQuery,
   });
-}
+});
+
+// ── Choice: открыть в Алисе ─────────────────────────────────
+choiceOpen.addEventListener('click', () => {
+  addToHistory(pendingQuery);
+  openAliceTab(pendingQuery);
+  window.close();
+});
+
+// ── Choice: назад ───────────────────────────────────────────
+choiceCancel.addEventListener('click', () => {
+  pendingQuery = '';
+  showState('input');
+  queryInput.focus();
+});
 
 // ── Show Response ───────────────────────────────────────────
 
