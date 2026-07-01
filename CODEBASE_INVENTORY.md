@@ -176,28 +176,88 @@ All feature branches share identical `popup.js`, `popup.html`, `content.js` — 
 
 ## Data Flow
 
-```
-User types in popup ──→ popup.js: openAliceTab()
-                       Creates URL with:
-                         ?alice_deeplink={"text":"..."}
-                         &_src=alice-extension
-                         &_rid=req_N
-                       ──→ chrome.tabs.create({ url, active: true })
+## Workflow
 
-                        ──→ content.js activates on yandex.ru/alice
-                             ├── Detect auth page → error
-                             ├── Find input field → fill query → click send
-                             └── Poll DOM until response stabilizes
-                                  └── Extract response text
-                                  └── chrome.runtime.sendMessage('aliceResponse')
+### Отправка запроса из popup (основной сценарий)
+
+```
+User writes query in popup ──→ нажимает Enter / кнопку отправки
+                  │
+                  ▼
+         popup.js: sendQuery()
+                  │
+                  ├── Сохраняет в историю (chrome.storage.local)
+                  ├── Показывает спиннер «Алиса думает...» (state-loading)
+                  └── chrome.runtime.connect({ name: 'alice-query' })
+                  └── port.postMessage({ action: 'askAlice', query })
+                  │
+                  ▼
+         background.js: handleAskAlice()
+                  │
+                  ├── Регистрирует requestId (таймаут 25с)
+                  └── chrome.tabs.create({ url, active: false })
+                  │       (скрытая вкладка — не переключает фокус)
+                  ▼
+         yandex.ru/alice загружается
+                  │
+                  ▼
+         content.js активируется (_src=alice-extension + alice_deeplink)
+                  │
+                  ├── Проверка авторизации (если login-форма → ошибка)
+                  ├── Поиск поля ввода → вставка текста
+                  ├── Клик по кнопке отправки
+                  └── DOM-polling ответа (250ms, стабильность 1.5с)
+                       │
+                       ▼
+                  chrome.runtime.sendMessage('aliceResponse')
+                  │
+                  ▼
+         background.js: handleAliceResponse()
+                  │
+                  ├── Отправляет ответ в popup через port.postMessage
+                  └── Закрывает скрытую вкладку (через 500ms)
+                       │
+                       ▼
+         popup.js получает 'response'
+                  │
+                  ├── Показывает ответ Алисы (state-result)
+                  └── Кнопка «↗ Перейти к Алисе» активна
+                       │
+                       (если пользователь нажал)
+                       ▼
+         popup.js: openAliceTab() → chrome.tabs.create({ active: true })
+                  └── window.close()
+```
+
+### Отправка запроса из omnibox (alice <текст>)
+
+```
+Ввод в адресной строке:  alice погода москва
+                  │
+                  ▼
+         background.js: omnibox.onInputEntered
+                  │
+                  └── openOrReuseTab() → открывает/обновляет вкладку
+```
+
+### Отправка запроса через контекстное меню
+
+```
+Выделение текста → правый клик → «Спросить у Алисы: "..."`
+                  │
+                  ▼
+         background.js: contextMenus.onClicked
+                  │
+                  └── openOrReuseTab() → открывает/обновляет вкладку
 ```
 
 ---
 
 ## Key Design Decisions
 
-1. **No hidden tabs.** Query is sent only when user clicks "↗ Перейти к Алисе" — no background tab creation.
+1. **Фоновая вкладка для ответа.** При отправке запроса открывается невидимая вкладка с `active: false`. Она мелькает в панели вкладок ~1-2с, но не переключает фокус и автоматически закрывается после получения ответа. Это единственный способ взаимодействовать с сайтом Яндекса из расширения.
 2. **Deeplink mechanism.** Uses Yandex's official `alice_deeplink` URL parameter to pre-fill the query on Alice's page.
 3. **DOM-based response extraction.** No API keys, no reverse engineering of private APIs — works as a user would.
-4. **Cross-browser via branches.** One codebase, three branches, shared popup/content, isolated manifest/background.
-5. **Firefox Event Page.** Background script must handle restart at any time (context menu recreation).
+4. **Crash recovery (Firefox Event Page).** Если Event Page перезапускается между отправкой запроса и получением ответа, ответ сохраняется в `chrome.storage.local` и popup подхватывает его при переоткрытии.
+5. **Cross-browser via branches.** One codebase, three branches, shared popup/content, isolated manifest/background.
+6. **Firefox Event Page.** Background script must handle restart at any time (context menu recreation, crash recovery).
