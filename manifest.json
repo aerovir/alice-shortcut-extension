@@ -4,8 +4,8 @@
   "short_name": "Ask Alice",
   "version": "2.0.0",
   "description": "Быстрый текстовый запрос к Алисе — ответ прямо в popup, без переключения вкладок",
-  "author": "",
-  "homepage_url": "https://github.com/YOUR_USERNAME/alice-shortcut-extension",
+  "author": "aerovir",
+  "homepage_url": "https://github.com/aerovir/alice-shortcut-extension",
 
   "icons": {
     "16": "icons/icon16.png",
