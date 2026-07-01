@@ -188,9 +188,19 @@ function connectPort() {
   });
 
   port.onDisconnect.addListener(() => {
-    // Если мы в loading и popup не закрыт — ошибка
+    // Если мы в loading — проверяем, не пришёл ли уже ответ в storage
+    // (Firefox Event Page мог перезапуститься и потерять порт, но сохранить ответ)
     if (currentState === 'loading') {
-      showError('Соединение прервано', 'Попробуйте снова');
+      chrome.storage.local.get(['lastResponse', 'lastQuery', '_pendingResponse'], (result) => {
+        if (result._pendingResponse) {
+          showResponse(result._pendingResponse);
+          chrome.storage.local.remove('_pendingResponse');
+        } else if (result.lastResponse && pendingQuery && result.lastQuery === pendingQuery) {
+          showResponse(result.lastResponse);
+        } else {
+          showError('Соединение прервано', 'Попробуйте снова');
+        }
+      });
     }
     port = null;
   });
@@ -352,10 +362,13 @@ async function init() {
   }
 
   // Если был предыдущий ответ — показываем его
-  const { lastResponse, lastQuery } = await new Promise(resolve =>
-    chrome.storage.local.get(['lastResponse', 'lastQuery'], resolve)
+  const { lastResponse, lastQuery, _pendingResponse } = await new Promise(resolve =>
+    chrome.storage.local.get(['lastResponse', 'lastQuery', '_pendingResponse'], resolve)
   );
-  if (lastResponse && lastQuery) {
+  if (_pendingResponse) {
+    showResponse(_pendingResponse);
+    chrome.storage.local.remove('_pendingResponse');
+  } else if (lastResponse && lastQuery) {
     pendingQuery = lastQuery;
     showResponse(lastResponse);
   }

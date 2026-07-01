@@ -1,7 +1,7 @@
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════
-   Background Service Worker
+   Background Service Worker / Event Page (Firefox)
    ══════════════════════════════════════════════════════════════
    - Popup port: получает запрос, открывает скрытую вкладку (#6)
    - Content script router: пересылает ответ из content → popup
@@ -13,6 +13,11 @@
 const ALICE_BASE = 'https://yandex.ru/alice';
 const REQUEST_TIMEOUT_MS = 25_000; // 25 секунд
 const RESPONSE_POLL_INTERVAL = 300;
+
+/* ── При старте: очищаем pending-данные (для Firefox Event Page) ────
+   Firefox перезапускает Event Page при неактивности — onStartup
+   не срабатывает при каждом перезапуске, поэтому чистим здесь.       */
+chrome.storage.local.remove(['_pendingQuery', '_pendingResponse']).catch(() => {});
 
 /* ── Request tracking ────────────────────────────────────────
    Каждому запросу от popup присваивается уникальный ID.
@@ -143,13 +148,13 @@ function handleCancel(requestId) {
 chrome.runtime.onMessage.addListener((msg, sender) => {
   // ── Ответ от Алисы готов ──
   if (msg.type === 'aliceResponse') {
-    handleAliceResponse(msg.requestId, msg.text);
+    handleAliceResponse(msg.requestId, msg.text, sender.tab?.id);
     return false;
   }
 
   // ── Ошибка на странице Алисы ──
   if (msg.type === 'aliceError') {
-    handleAliceError(msg.requestId, msg.text, msg.sub);
+    handleAliceError(msg.requestId, msg.text, msg.sub, sender.tab?.id);
     return false;
   }
 
@@ -160,16 +165,17 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   }
 });
 
-function handleAliceResponse(requestId, text) {
+function handleAliceResponse(requestId, text, senderTabId) {
   const req = activeRequests.get(requestId);
   if (!req || req.cancelled) {
-    // Popup уже закрыт — сохраняем в storage для следующего открытия
+    // Event Page мог перезапуститься — активных запросов нет.
+    // Сохраняем ответ в storage, чтобы popup подхватил при переоткрытии,
+    // и закрываем скрытую вкладку (если знаем её ID).
     if (text) {
-      chrome.storage.local.set({
-        lastResponse: text,
-        _pendingResponse: text,
-        _pendingResponseFor: requestId,
-      });
+      chrome.storage.local.set({ lastResponse: text, _pendingResponse: text });
+    }
+    if (senderTabId) {
+      chrome.tabs.remove(senderTabId).catch(() => {});
     }
     return;
   }
@@ -195,9 +201,15 @@ function handleAliceResponse(requestId, text) {
   }, 500);
 }
 
-function handleAliceError(requestId, text, sub) {
+function handleAliceError(requestId, text, sub, senderTabId) {
   const req = activeRequests.get(requestId);
-  if (!req || req.cancelled) return;
+  if (!req || req.cancelled) {
+    // Event Page перезапустился — закрываем вкладку отправителя
+    if (senderTabId) {
+      chrome.tabs.remove(senderTabId).catch(() => {});
+    }
+    return;
+  }
 
   clearTimeout(req.timer);
 
