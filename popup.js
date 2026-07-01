@@ -8,16 +8,11 @@
 const $ = (id) => document.getElementById(id);
 
 const stateInput = $('state-input');
-const stateChoice = $('state-choice');
 const stateLoading = $('state-loading');
 const stateResult = $('state-result');
 const stateError = $('state-error');
 const queryInput = $('queryInput');
 const sendBtn = $('sendBtn');
-const choiceQuery = $('choiceQuery');
-const choiceWait = $('choiceWait');
-const choiceOpen = $('choiceOpen');
-const choiceCancel = $('choiceCancel');
 const loadingQuery = $('loadingQuery');
 const cancelBtn = $('cancelBtn');
 const resultContent = $('resultContent');
@@ -44,7 +39,7 @@ let port = null;            // порт для связи с background
 // ── Helpers ─────────────────────────────────────────────────
 
 function showState(name) {
-  [stateInput, stateChoice, stateLoading, stateResult, stateError].forEach(el =>
+  [stateInput, stateLoading, stateResult, stateError].forEach(el =>
     el.classList.toggle('active', el.id === `state-${name}`)
   );
   currentState = name;
@@ -201,7 +196,7 @@ function connectPort() {
   });
 }
 
-// ── Send Query — показывает выбор ───────────────────────────
+// ── Send Query ──────────────────────────────────────────────
 function sendQuery(text) {
   const trimmed = text.trim();
   if (!trimmed) return;
@@ -211,41 +206,20 @@ function sendQuery(text) {
   }
 
   pendingQuery = trimmed;
-  choiceQuery.textContent = `«${trimmed}»`;
-  showState('choice');
-}
-
-// ── Choice: ответ здесь ─────────────────────────────────────
-choiceWait.addEventListener('click', () => {
-  // Сохраняем в историю
-  addToHistory(pendingQuery);
-
-  // Показываем loading
-  loadingQuery.textContent = `«${pendingQuery}»`;
+  loadingQuery.textContent = `«${trimmed}»`;
   showState('loading');
-  savePendingQuery(pendingQuery);
+  savePendingQuery(trimmed);
+
+  // Сохраняем в историю
+  addToHistory(trimmed);
 
   // Коннектим порт и отправляем запрос в background
   connectPort();
   port.postMessage({
     action: 'askAlice',
-    query: pendingQuery,
+    query: trimmed,
   });
-});
-
-// ── Choice: открыть в Алисе ─────────────────────────────────
-choiceOpen.addEventListener('click', () => {
-  addToHistory(pendingQuery);
-  openAliceTab(pendingQuery);
-  window.close();
-});
-
-// ── Choice: назад ───────────────────────────────────────────
-choiceCancel.addEventListener('click', () => {
-  pendingQuery = '';
-  showState('input');
-  queryInput.focus();
-});
+}
 
 // ── Show Response ───────────────────────────────────────────
 
