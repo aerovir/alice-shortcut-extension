@@ -2,7 +2,11 @@
 
 **Last updated:** July 2026
 
-This extension does **not** collect, store, transmit, or share any personal data.
+### What data is transmitted
+
+The extension sends your **text query** to `yandex.ru/alice` (or `alice.yandex.ru`) to obtain a response from Yandex Alice. This is the core function of the extension — without sending the query, Alice cannot answer.
+
+No other data is transmitted to any server.
 
 ### What data is stored locally (and only on your device)
 
