@@ -1,18 +1,22 @@
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════
-   Popup Script — отправка запроса, переход к Алисе, история
+   Popup Script — отправка через скрытую вкладку, ответ в popup
    ══════════════════════════════════════════════════════════════ */
 
 // ── Elements ────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 
 const stateInput = $('state-input');
+const stateLoading = $('state-loading');
 const stateResult = $('state-result');
 const stateError = $('state-error');
 const queryInput = $('queryInput');
 const sendBtn = $('sendBtn');
+const loadingQuery = $('loadingQuery');
+const cancelBtn = $('cancelBtn');
 const resultContent = $('resultContent');
+const copyBtn = $('copyBtn');
 const newQueryBtn = $('newQueryBtn');
 const openInTabBtn = $('openInTabBtn');
 const historyToggle = $('historyToggle');
@@ -29,11 +33,12 @@ const MAX_HISTORY = 20;
 // ── State ───────────────────────────────────────────────────
 let currentState = 'input';
 let pendingQuery = '';
+let port = null;
 
 // ── Helpers ─────────────────────────────────────────────────
 
 function showState(name) {
-  [stateInput, stateResult, stateError].forEach(el =>
+  [stateInput, stateLoading, stateResult, stateError].forEach(el =>
     el.classList.toggle('active', el.id === `state-${name}`)
   );
   currentState = name;
@@ -43,6 +48,14 @@ function showError(msg, sub = '') {
   errorText.textContent = msg;
   errorSubtext.textContent = sub;
   showState('error');
+}
+
+// ── Storage ─────────────────────────────────────────────────
+function savePendingQuery(query) {
+  chrome.storage.local.set({ _pendingQuery: query });
+}
+function clearPendingQuery() {
+  chrome.storage.local.remove('_pendingQuery');
 }
 
 // ── History ─────────────────────────────────────────────────
@@ -75,17 +88,9 @@ async function removeFromHistory(index) {
   renderHistory();
 }
 
-async function clearHistory() {
-  await new Promise(resolve =>
-    chrome.storage.local.set({ [HISTORY_KEY]: [] }, resolve)
-  );
-  renderHistory();
-}
-
 async function renderHistory() {
   const history = await getHistory();
   historyList.innerHTML = '';
-
   footerHistoryCount.textContent = history.length ? `📜 ${history.length}` : '';
 
   if (history.length === 0) {
@@ -120,7 +125,6 @@ function escapeHtml(str) {
   return d.innerHTML;
 }
 
-// History toggle
 let historyOpen = true;
 historyToggle.addEventListener('click', () => {
   historyOpen = !historyOpen;
@@ -136,7 +140,47 @@ function updateSendButton() {
   sendBtn.classList.toggle('active', trimmed.length > 0);
 }
 
+// ── Port & Communication ────────────────────────────────────
+
+function connectPort() {
+  if (port) {
+    try { port.disconnect(); } catch (_) {}
+  }
+  port = chrome.runtime.connect({ name: 'alice-query' });
+
+  port.onMessage.addListener((msg) => {
+    switch (msg.type) {
+      case 'response':
+        showResponse(msg.text);
+        break;
+      case 'error':
+        if (currentState === 'loading') {
+          showError(msg.text || 'Не удалось получить ответ от Алисы',
+                    msg.sub || 'Попробуйте открыть Алису явно');
+        }
+        break;
+    }
+  });
+
+  port.onDisconnect.addListener(() => {
+    if (currentState === 'loading') {
+      chrome.storage.local.get(['lastResponse', 'lastQuery', '_pendingResponse'], (result) => {
+        if (result._pendingResponse) {
+          showResponse(result._pendingResponse);
+          chrome.storage.local.remove('_pendingResponse');
+        } else if (result.lastResponse && pendingQuery && result.lastQuery === pendingQuery) {
+          showResponse(result.lastResponse);
+        } else {
+          showError('Соединение прервано', 'Попробуйте снова');
+        }
+      });
+    }
+    port = null;
+  });
+}
+
 // ── Send Query ──────────────────────────────────────────────
+
 function sendQuery(text) {
   const trimmed = text.trim();
   if (!trimmed) return;
@@ -146,12 +190,49 @@ function sendQuery(text) {
   }
 
   pendingQuery = trimmed;
+  loadingQuery.textContent = `«${trimmed}»`;
+  showState('loading');
+  savePendingQuery(trimmed);
   addToHistory(trimmed);
 
-  // Показываем запрос и кнопку перехода
-  resultContent.textContent = `Запрос: «${trimmed}»`;
-  showState('result');
+  connectPort();
+  port.postMessage({
+    action: 'askAlice',
+    query: trimmed,
+  });
 }
+
+// ── Show Response ───────────────────────────────────────────
+
+function showResponse(text) {
+  if (!text || !text.trim()) {
+    showError('Алиса вернула пустой ответ', 'Попробуйте задать вопрос иначе');
+    return;
+  }
+
+  resultContent.textContent = text;
+  showState('result');
+
+  chrome.storage.local.set({ lastResponse: text, lastQuery: pendingQuery });
+  clearPendingQuery();
+}
+
+// ── Copy ────────────────────────────────────────────────────
+
+copyBtn.addEventListener('click', async () => {
+  const text = resultContent.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    copyBtn.textContent = '✅ Скопировано';
+    copyBtn.classList.add('copied');
+    setTimeout(() => {
+      copyBtn.textContent = '📋 Копировать';
+      copyBtn.classList.remove('copied');
+    }, 2000);
+  } catch {
+    copyBtn.textContent = '❌ Ошибка';
+  }
+});
 
 // ── Open in tab ─────────────────────────────────────────────
 
@@ -170,15 +251,18 @@ openInTabBtn.addEventListener('click', () => {
   }
 });
 
-// ── New query ───────────────────────────────────────────────
+// ── Cancel ──────────────────────────────────────────────────
 
-newQueryBtn.addEventListener('click', () => {
-  pendingQuery = '';
-  queryInput.value = '';
-  queryInput.style.height = 'auto';
-  updateSendButton();
+cancelBtn.addEventListener('click', () => {
+  if (port) {
+    try {
+      port.postMessage({ action: 'cancel' });
+      port.disconnect();
+    } catch (_) {}
+    port = null;
+  }
   showState('input');
-  queryInput.focus();
+  clearPendingQuery();
 });
 
 // ── Retry ───────────────────────────────────────────────────
@@ -189,6 +273,18 @@ retryBtn.addEventListener('click', () => {
   } else {
     showState('input');
   }
+});
+
+// ── New query ───────────────────────────────────────────────
+
+newQueryBtn.addEventListener('click', () => {
+  pendingQuery = '';
+  queryInput.value = '';
+  queryInput.style.height = 'auto';
+  updateSendButton();
+  showState('input');
+  queryInput.focus();
+  chrome.storage.local.remove(['lastResponse', 'lastQuery']);
 });
 
 // ── Event Listeners ─────────────────────────────────────────
@@ -218,6 +314,27 @@ queryInput.addEventListener('focus', () => queryInput.select());
 async function init() {
   await renderHistory();
   queryInput.focus();
+
+  // Восстанавливаем незавершённый запрос (crash recovery)
+  const { _pendingQuery } = await new Promise(resolve =>
+    chrome.storage.local.get('_pendingQuery', resolve)
+  );
+  if (_pendingQuery) {
+    queryInput.value = _pendingQuery;
+    updateSendButton();
+  }
+
+  // Если был предыдущий ответ — показываем его
+  const { lastResponse, lastQuery, _pendingResponse } = await new Promise(resolve =>
+    chrome.storage.local.get(['lastResponse', 'lastQuery', '_pendingResponse'], resolve)
+  );
+  if (_pendingResponse) {
+    showResponse(_pendingResponse);
+    chrome.storage.local.remove('_pendingResponse');
+  } else if (lastResponse && lastQuery) {
+    pendingQuery = lastQuery;
+    showResponse(lastResponse);
+  }
 }
 
 init().catch(console.error);

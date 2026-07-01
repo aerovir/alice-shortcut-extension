@@ -219,19 +219,99 @@
       padding: 12px 0;
     }
 
+    /* ── State: Loading ── */
+    #state-loading.active {
+      padding: 28px 16px;
+      align-items: center;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+    }
+
+    .loading-query {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cancel-btn {
+      margin-top: 4px;
+      background: none;
+      border: 1px solid var(--color-border);
+      padding: 5px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--color-text-secondary);
+      transition: all var(--transition);
+    }
+    .cancel-btn:hover {
+      background: var(--color-input-bg);
+      color: var(--color-text);
+    }
+
     /* ── State: Result ── */
     #state-result.active {
       padding: 8px 16px 10px;
       gap: 6px;
     }
 
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--color-text-muted);
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .result-header .label { font-weight: 500; }
+
+    .result-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .result-actions button {
+      background: none;
+      border: none;
+      font-size: 11px;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: all var(--transition);
+    }
+    .result-actions button:hover {
+      background: var(--color-input-bg);
+      color: var(--color-text);
+    }
+    .result-actions button.copied { color: #4caf50; }
+
     .result-content {
       font-size: 13px;
       line-height: 1.6;
+      max-height: 240px;
+      overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-word;
-      padding: 10px 0 6px;
-      color: var(--color-text-secondary);
+      padding: 6px 0;
+      scrollbar-width: thin;
     }
 
     .result-footer {
@@ -333,8 +413,22 @@
     </div>
   </div>
 
+  <!-- ════════════ State: Loading ════════════ -->
+  <div id="state-loading" class="state">
+    <div class="spinner"></div>
+    <div class="loading-text">Алиса думает...</div>
+    <div class="loading-query" id="loadingQuery"></div>
+    <button class="cancel-btn" id="cancelBtn">Отменить</button>
+  </div>
+
   <!-- ════════════ State: Result ════════════ -->
   <div id="state-result" class="state">
+    <div class="result-header">
+      <span class="label">🤖 Ответ Алисы</span>
+      <div class="result-actions">
+        <button id="copyBtn" title="Копировать">📋 Копировать</button>
+      </div>
+    </div>
     <div class="result-content" id="resultContent"></div>
     <div class="result-footer">
       <button id="newQueryBtn">✏️ Новый запрос</button>
