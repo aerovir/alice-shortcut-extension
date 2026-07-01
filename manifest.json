@@ -34,6 +34,10 @@
   "permissions": [
     "contextMenus"
   ],
+
+  "omnibox": {
+    "keyword": "alice"
+  },
   "commands": {
     "_execute_action": {
       "suggested_key": {
