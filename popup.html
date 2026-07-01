@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Спросить у Алисы</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fff;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .header h1 { font-size: 16px; color: #1a1a1a; }
+    .input-container { display: flex; gap: 8px; }
+    textarea {
+      flex: 1;
+      padding: 10px 12px;
+      border: 2px solid #e8e8e8;
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      min-height: 40px;
+      max-height: 120px;
+      line-height: 1.4;
+    }
+    textarea:focus { border-color: #fc0; }
+    button {
+      width: 40px; height: 40px;
+      border: none; border-radius: 50%;
+      background: #fc0;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.15s, background 0.2s;
+    }
+    button:hover { background: #f5b800; transform: scale(1.05); }
+    button svg { width: 18px; height: 18px; fill: #333; }
+    .hint {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+    }
+    .error {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #fff0f0;
+      border-radius: 8px;
+      color: #d32f2f;
+      font-size: 13px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="#fc0">
+      <circle cx="12" cy="12" r="10"/>
+      <text x="12" y="16" text-anchor="middle" fill="#333" font-size="12" font-weight="bold">A</text>
+    </svg>
+    <h1>Спросить у Алисы</h1>
+  </div>
+  <div class="input-container">
+    <textarea id="queryInput" rows="1" placeholder="Введите запрос..." maxlength="1000"></textarea>
+    <button id="sendBtn" title="Отправить">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+  <div class="error" id="errorMsg"></div>
+  <div class="hint">↵ Enter — отправить · Esc — закрыть</div>
+  <script src="popup.js"></script>
+</body>
+</html>
