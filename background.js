@@ -290,7 +290,7 @@ function openOrReuseTab(url) {
    Контекстное меню
    ══════════════════════════════════════════════════════════════ */
 
-chrome.runtime.onInstalled.addListener(() => {
+function createContextMenu() {
   try {
     chrome.contextMenus.removeAll(() => {
       chrome.contextMenus.create({
@@ -302,7 +302,12 @@ chrome.runtime.onInstalled.addListener(() => {
   } catch (e) {
     console.debug('[Ask Alice] Context menus not available:', e.message);
   }
-});
+}
+
+// Firefox: Event Page перезапускается — меню нужно создавать при каждом старте
+createContextMenu();
+
+chrome.runtime.onInstalled.addListener(createContextMenu);
 
 chrome.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId === 'ask-alice-selection' && info.selectionText) {
