@@ -34,7 +34,7 @@
       line-height: 1.4;
     }
     textarea:focus { border-color: #fc0; }
-    button {
+    .send-btn {
       width: 40px; height: 40px;
       border: none; border-radius: 50%;
       background: #fc0;
@@ -43,8 +43,9 @@
       flex-shrink: 0;
       transition: transform 0.15s, background 0.2s;
     }
-    button:hover { background: #f5b800; transform: scale(1.05); }
-    button svg { width: 18px; height: 18px; fill: #333; }
+    .send-btn:hover { background: #f5b800; transform: scale(1.05); }
+    .send-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+    .send-btn svg { width: 18px; height: 18px; fill: #333; }
     .hint {
       margin-top: 8px;
       font-size: 11px;
@@ -60,6 +61,34 @@
       font-size: 13px;
       display: none;
     }
+    /* ── History ── */
+    .history-section { margin-top: 8px; }
+    .history-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 0; cursor: pointer; user-select: none;
+      font-size: 11px; color: #999;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .history-header:hover { color: #666; }
+    .history-header .arrow { font-size: 9px; transition: transform 0.2s; }
+    .history-header .arrow.open { transform: rotate(90deg); }
+    .history-list { max-height: 140px; overflow-y: auto; }
+    .history-list.collapsed { display: none; }
+    .history-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 8px; font-size: 12px; cursor: pointer;
+      border-radius: 6px; color: #666;
+    }
+    .history-item:hover { background: #fafafa; color: #1a1a1a; }
+    .history-item .icon { font-size: 10px; flex-shrink: 0; opacity: 0.5; }
+    .history-item .text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-item .del {
+      font-size: 14px; opacity: 0;
+      background: none; border: none; cursor: pointer; color: #999; padding: 0 2px;
+    }
+    .history-item:hover .del { opacity: 0.5; }
+    .history-item .del:hover { opacity: 1; color: #d32f2f; }
+    .history-empty { font-size: 11px; color: #bbb; text-align: center; padding: 12px 0; }
   </style>
 </head>
 <body>
@@ -72,9 +101,17 @@
   </div>
   <div class="input-container">
     <textarea id="queryInput" rows="1" placeholder="Введите запрос..." maxlength="1000"></textarea>
-    <button id="sendBtn" title="Отправить">
+    <button class="send-btn" id="sendBtn" disabled title="Отправить">
       <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
     </button>
+  </div>
+
+  <div class="history-section">
+    <div class="history-header" id="historyToggle">
+      <span>📜 История запросов</span>
+      <span class="arrow open">▶</span>
+    </div>
+    <div class="history-list" id="historyList"></div>
   </div>
   <div class="error" id="errorMsg"></div>
   <div class="hint">↵ Enter — отправить · Esc — закрыть</div>
