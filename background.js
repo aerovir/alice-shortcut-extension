@@ -10,6 +10,22 @@ function buildAliceUrl(query) {
   return url.toString();
 }
 
+/* ── Reuse Tab: переиспользовать существующую вкладку ──── */
+
+function openOrReuseTab(url) {
+  chrome.tabs.query(
+    { url: ['https://yandex.ru/alice*', 'https://alice.yandex.ru/*'] },
+    (tabs) => {
+      if (!tabs || tabs.length === 0) {
+        chrome.tabs.create({ url, active: true });
+        return;
+      }
+      const target = tabs.find(t => t.id) || tabs[0];
+      chrome.tabs.update(target.id, { url, active: true });
+    }
+  );
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
@@ -23,7 +39,7 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId === 'ask-alice-selection' && info.selectionText) {
     const url = buildAliceUrl(info.selectionText.trim());
-    chrome.tabs.create({ url, active: true });
+    openOrReuseTab(url);
   }
 });
 
@@ -33,7 +49,7 @@ chrome.omnibox.onInputEntered.addListener((text) => {
   const trimmed = text.trim();
   if (!trimmed) return;
   const url = buildAliceUrl(trimmed);
-  chrome.tabs.create({ url, active: true });
+  openOrReuseTab(url);
 });
 
 chrome.omnibox.setDefaultSuggestion({
