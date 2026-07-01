@@ -32,7 +32,8 @@
     "https://alice.yandex.ru/*"
   ],
   "permissions": [
-    "contextMenus"
+    "contextMenus",
+    "storage"
   ],
 
   "omnibox": {
