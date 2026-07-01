@@ -237,7 +237,8 @@ function openAliceTab(query) {
   const deeplink = JSON.stringify({ text: query });
   const url = new URL('https://yandex.ru/alice');
   url.searchParams.set('alice_deeplink', deeplink);
-  url.searchParams.set('_src', 'alice-extension');
+  // Без _src=alice-extension — это ручная навигация пользователя,
+  // контент-скрипт не должен активироваться и авто-отправлять запрос
   chrome.tabs.create({ url: url.toString(), active: true });
   window.close();
 }

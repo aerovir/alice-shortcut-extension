@@ -17,6 +17,11 @@ chrome.storage.local.remove(['_pendingQuery', '_pendingResponse']).catch(() => {
 const activeRequests = new Map();
 let requestCounter = 0;
 
+function closeTabAndCleanup(req, requestId) {
+  if (req.tabId) chrome.tabs.remove(req.tabId).catch(() => {});
+  activeRequests.delete(requestId);
+}
+
 /* ══════════════════════════════════════════════════════════════
    Popup Port
    ══════════════════════════════════════════════════════════════ */
@@ -36,7 +41,20 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 
   port.onDisconnect.addListener(() => {
-    handleCancel(requestId);
+    const req = activeRequests.get(requestId);
+    if (!req) return;
+    // Если вкладка активна — пользователь сам на неё переключился, не закрываем
+    if (req.tabId) {
+      chrome.tabs.get(req.tabId, (tab) => {
+        if (!chrome.runtime.lastError && tab && tab.active) {
+          activeRequests.delete(requestId);
+          return;
+        }
+        closeTabAndCleanup(req, requestId);
+      });
+    } else {
+      activeRequests.delete(requestId);
+    }
   });
 });
 
@@ -68,8 +86,18 @@ function handleAskAlice(requestId, port, query) {
         sub: 'Возможно, страница загружается долго или вы не авторизованы',
       });
     } catch (_) {}
-    if (req.tabId) chrome.tabs.remove(req.tabId).catch(() => {});
-    activeRequests.delete(requestId);
+    // Не закрываем, если пользователь сам переключился на вкладку
+    if (req.tabId) {
+      chrome.tabs.get(req.tabId, (tab) => {
+        if (!chrome.runtime.lastError && tab && tab.active) {
+          activeRequests.delete(requestId);
+          return;
+        }
+        closeTabAndCleanup(req, requestId);
+      });
+    } else {
+      activeRequests.delete(requestId);
+    }
   }, REQUEST_TIMEOUT_MS);
 
   activeRequests.set(requestId, { port, tabId: null, timer, cancelled: false });
@@ -98,8 +126,7 @@ function handleCancel(requestId) {
   if (!req) return;
   req.cancelled = true;
   clearTimeout(req.timer);
-  if (req.tabId) chrome.tabs.remove(req.tabId).catch(() => {});
-  activeRequests.delete(requestId);
+  closeTabAndCleanup(req, requestId);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -108,11 +135,11 @@ function handleCancel(requestId) {
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg.type === 'aliceResponse') {
-    handleAliceResponse(msg.requestId, msg.text, sender.tab?.id);
+    if (msg.requestId) handleAliceResponse(msg.requestId, msg.text, sender.tab?.id);
     return false;
   }
   if (msg.type === 'aliceError') {
-    handleAliceError(msg.requestId, msg.text, msg.sub, sender.tab?.id);
+    if (msg.requestId) handleAliceError(msg.requestId, msg.text, msg.sub, sender.tab?.id);
     return false;
   }
   return false;
@@ -127,28 +154,14 @@ function handleAliceResponse(requestId, text, senderTabId) {
   }
 
   clearTimeout(req.timer);
+  req.responded = true;
 
   try {
     req.port.postMessage({ type: 'response', text });
   } catch (_) {
+    // port умер — сохраняем ответ, вкладка закроется при onDisconnect
     chrome.storage.local.set({ lastResponse: text, _pendingResponse: text });
   }
-
-  setTimeout(() => {
-    if (req.tabId) {
-      chrome.tabs.get(req.tabId, (tab) => {
-        if (!chrome.runtime.lastError && tab && tab.active) {
-          // Пользователь сам переключился на вкладку — не закрываем
-          activeRequests.delete(requestId);
-          return;
-        }
-        chrome.tabs.remove(req.tabId).catch(() => {});
-        activeRequests.delete(requestId);
-      });
-    } else {
-      activeRequests.delete(requestId);
-    }
-  }, 500);
 }
 
 function handleAliceError(requestId, text, sub, senderTabId) {
@@ -158,19 +171,8 @@ function handleAliceError(requestId, text, sub, senderTabId) {
     return;
   }
   clearTimeout(req.timer);
+  req.responded = true;
   try { req.port.postMessage({ type: 'error', text, sub: sub || '' }); } catch (_) {}
-  if (req.tabId) {
-    chrome.tabs.get(req.tabId, (tab) => {
-      if (!chrome.runtime.lastError && tab && tab.active) {
-        activeRequests.delete(requestId);
-        return;
-      }
-      chrome.tabs.remove(req.tabId).catch(() => {});
-      activeRequests.delete(requestId);
-    });
-  } else {
-    activeRequests.delete(requestId);
-  }
 }
 
 /* ══════════════════════════════════════════════════════════════
