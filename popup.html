@@ -219,6 +219,70 @@
       padding: 12px 0;
     }
 
+    /* ── State: Choice ── */
+    #state-choice.active {
+      padding: 16px 16px 10px;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+    }
+    .choice-query {
+      font-size: 13px;
+      font-weight: 500;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 4px;
+      color: var(--color-text);
+    }
+    .choice-text {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      margin-bottom: 4px;
+    }
+    .choice-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+    .choice-btn {
+      width: 100%;
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--color-border);
+      background: var(--color-input-bg);
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--color-text);
+      transition: all var(--transition);
+      text-align: left;
+    }
+    .choice-btn:hover {
+      background: var(--color-accent-light);
+      border-color: var(--color-accent);
+    }
+    .choice-btn.choice-primary {
+      background: var(--color-accent);
+      border-color: var(--color-accent);
+      font-weight: 600;
+    }
+    .choice-btn.choice-primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .choice-cancel {
+      background: none;
+      border: none;
+      font-size: 11px;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      padding: 6px;
+      margin-top: 2px;
+      transition: color var(--transition);
+    }
+    .choice-cancel:hover { color: var(--color-text); }
+
     /* ── State: Loading ── */
     #state-loading.active {
       padding: 28px 16px;
@@ -411,6 +475,17 @@
       </div>
       <div class="history-list" id="historyList"></div>
     </div>
+  </div>
+
+  <!-- ════════════ State: Choice ════════════ -->
+  <div id="state-choice" class="state">
+    <div class="choice-query" id="choiceQuery"></div>
+    <div class="choice-text">Что сделать с запросом?</div>
+    <div class="choice-buttons">
+      <button class="choice-btn choice-primary" id="choiceWait">🤖 Получить ответ здесь</button>
+      <button class="choice-btn" id="choiceOpen">↗ Открыть в Алисе</button>
+    </div>
+    <button class="choice-cancel" id="choiceCancel">← Назад</button>
   </div>
 
   <!-- ════════════ State: Loading ════════════ -->
